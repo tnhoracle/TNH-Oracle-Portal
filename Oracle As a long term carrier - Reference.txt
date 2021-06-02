@@ -1,0 +1,56 @@
+Oracle Organization
+
+
+
+Oracle Cloud - Cloud wars
+-------------------------
+
+https://cloudwars.co/
+
+Oracle for Education
+--------------------
+
+  - Oracle Account / Cloud account
+https://www.oracle.com/index.html --> View Accounts
+
+  - Documentation
+https://docs.oracle.com/en/
+
+  - Oracle Interactive Architecture Reference
+https://www.oracle.com/webfolder/technetwork/tutorials/obe/db/12c/r1/poster/OUTPUT_poster/poster.html#
+
+  - OBE
+https://apexapps.oracle.com/pls/apex/f?p=44785:OLL_HOME:6998948481478:::::
+
+  - Certification 
+https://education.oracle.com/certification
+
+  - Oracle University 
+
+https://education.oracle.com/
+https://education.oracle.com/oracle-cloud-guided-learning
+https://ilearning.oracle.com/ilearn/en/learner/jsp/login.jsp?site=OracleAcad
+
+Oracle Products Downloads
+-------------------------
+	- https://www.oracle.com/database/technologies/oracle-database-software-downloads.html#19c
+
+	- Oracle Software Dilivery Cloud
+
+https://edelivery.oracle.com/osdc/faces/Home.jspx
+
+  
+ Oracle Offcial Support
+ ----------------------
+
+https://support.oracle.com/portal/
+
+Oracle Product Line  A --> Z
+------------------- ---------
+
+https://www.oracle.com/products/software.html
+
+Oracle Annual Conference
+------------------------
+https://www.oracle.com/openworld/
+
