@@ -203,6 +203,12 @@ VirtualBox Guest Additions: Building the modules for kernel
 once  done reboot the server .. you will have guest additions configured with full screen and
 now you will be able to share data between host OS.
 
+Lets say it didn't build , then once restarted  follow the same procedure that we followed initially to 
+install guest additions that is select devices on the Virtual Box main menu and select insert guest additions CD image 
+and once mounted and propmpted click run , a black window will appear, it will definitly build the moudules then will ask to 
+press enter to close that window.
+reboot the guest OS machine then login as root click on the maximize button at the right top . you will get full screen. 
+
 kernel-headers are files that describe the system environment and are used for 
 compiling normal programs that run in userspace. kernel-devel contains files 
 that are required for compiling kernel code that will run as part of the kernel, such as kernel modules.
