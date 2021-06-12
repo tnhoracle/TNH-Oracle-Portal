@@ -1,0 +1,736 @@
+Configure Oracle 12.2 Grid stanalone with multitenant Database on ASM
+=====================================================================
+
+Step 1
+======
+get Only OEL 7 OS installed with guest Additions   as per the the guide in Oracle Portal
+
+Ref :
+https://www.youtube.com/watch?v=Be5rLb1yOKc&list=PLxPIeQ330yijfLQ650rKaRXJ-Igd2UP5G&index=2
+https://www.youtube.com/watch?v=bH8WeV1C0Pc&list=PLxPIeQ330yijfLQ650rKaRXJ-Igd2UP5G&index=3
+https://github.com/tnhoracle/TNH-Oracle-Portal/blob/main/Oracle%2012-2-19-3%20in%20the%20same%20host
+
+Step 2
+======
+
+prepare for Grid standalone install
+
+[root@localhost ~]yum -y install oracle-database-server-12cR2-preinstall
+
+Install Oracle ASM Driver and the Support libraries
+
+[root@localhost ~]yum -y install oracleasm*
+
+This kernel driver(Kmod) is not version-specific and does not need to be upgraded when the kernel is upgraded.
+
+This might take few minutes
+
+[root@localhost ~]yum -y install kmod-oracleasm*
+
+Step 3
+======
+
+Create the Relavant OS level ASM groups
+
+[root@localhost ~]# groupadd -g 54327 asmdba
+[root@localhost ~]# groupadd -g 54328 asmoper
+[root@localhost ~]# groupadd -g 54329 asmadmin
+
+Add asmdba as secondary group to Oracle user
+
+[root@localhost ~]# usermod -a -G asmdba oracle
+
+Create Grid User
+
+[root@localhost ~]# useradd -u 54331 -g oinstall -G dba,asmdba,asmoper,asmadmin,racdba grid
+
+Change the password
+
+[root@localhost ~]# passwd grid
+Changing password for user grid.
+New password: 
+BAD PASSWORD: The password is shorter than 8 characters
+Retype new password: 
+passwd: all authentication tokens updated successfully.
+
+Create the Directories for Oracle Database installation
+
+mkdir -p /u01/app/oracle
+mkdir -p /u01/app/oracle/product/12.2.0/db_home
+chown -R oracle:oinstall /u01
+
+Create the Directories for Oracle Grid installation
+
+
+
+[root@localhost ~]# mkdir -p /u01/app/grid
+[root@localhost ~]# mkdir -p /u01/app/grid/product/12.2.0/grid_home
+[root@localhost ~]# chown -R grid:oinstall /u01/app/grid
+[root@localhost ~]# chmod -R 775 /u01
+
+Let us configure Oracle ASM
+
+[root@localhost ~]# oracleasm configure -i
+Configuring the Oracle ASM library driver.
+
+This will configure the on-boot properties of the Oracle ASM library
+driver.  The following questions will determine whether the driver is
+loaded on boot and what permissions it will have.  The current values
+will be shown in brackets ('[]').  Hitting <ENTER> without typing an
+answer will keep that current value.  Ctrl-C will abort.
+
+Default user to own the driver interface []: grid
+Default group to own the driver interface []: dba
+Start Oracle ASM library driver on boot (y/n) [n]: y
+Scan for Oracle ASM disks on boot (y/n) [y]: y
+Writing Oracle ASM library driver configuration: done
+
+Load / initiate Oracle ASM
+
+
+[root@localhost ~]# oracleasm init
+Creating /dev/oracleasm mount point: /dev/oracleasm
+Loading module "oracleasm": oracleasm
+Configuring "oracleasm" to use device physical block size
+Mounting ASMlib driver filesystem: /dev/oracleasm
+
+Step 5
+======
+
+Add 15GB Disk to virtual machine which we will use to create 3 partitions of 5 GB each for our ASM disks. 
+
+Open Virtual machine >> Settings >> Storage >> Controller: SATA >> Create new disk 
+
+Please followup the Video demonstration for this.
+
+
+
+ 
+
+Step 6
+======
+
+Once the disk is added please use fdisk command as below
+
+
+Creating Partitions for asm
+===========================
+
+[root@localhost ~]# fdisk -l
+
+Disk /dev/sda: 84.7 GB, 84729331712 bytes, 165486976 sectors
+Units = sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+Disk label type: dos
+Disk identifier: 0x0004dd51
+
+   Device Boot      Start         End      Blocks   Id  System
+/dev/sda1   *        2048     2099199     1048576   83  Linux
+/dev/sda2         2099200   165486591    81693696   8e  Linux LVM
+
+Disk /dev/sdb: 16.5 GB, 16471736320 bytes, 32171360 sectors
+Units = sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+
+
+Disk /dev/mapper/ol-root: 52.3 GB, 52281999360 bytes, 102113280 sectors
+Units = sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+
+
+Disk /dev/mapper/ol-swap: 5838 MB, 5838471168 bytes, 11403264 sectors
+Units = sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+
+
+Disk /dev/mapper/ol-home: 25.5 GB, 25526534144 bytes, 49856512 sectors
+Units = sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+
+
+as you can see above,  Disk /dev/sdb: 16.5 GB the newly added disk has been listed.
+
+lets contnue to create three partitions each 5G as below.
+
+
+[root@localhost ~]# fdisk /dev/sdb
+Welcome to fdisk (util-linux 2.23.2).
+
+Changes will remain in memory only, until you decide to write them.
+Be careful before using the write command.
+
+Device does not contain a recognized partition table
+Building a new DOS disklabel with disk identifier 0x6660e756.
+
+Command (m for help): n
+Partition type:
+   p   primary (0 primary, 0 extended, 4 free)
+   e   extended
+Select (default p): 
+Using default response p
+Partition number (1-4, default 1): 
+First sector (2048-32171359, default 2048): 
+Using default value 2048
+Last sector, +sectors or +size{K,M,G} (2048-32171359, default 32171359): +5G
+Partition 1 of type Linux and of size 5 GiB is set
+
+Command (m for help): n
+Partition type:
+   p   primary (1 primary, 0 extended, 3 free)
+   e   extended
+Select (default p): 
+Using default response p
+Partition number (2-4, default 2): 
+First sector (10487808-32171359, default 10487808): 
+Using default value 10487808
+Last sector, +sectors or +size{K,M,G} (10487808-32171359, default 32171359): +5G
+Partition 2 of type Linux and of size 5 GiB is set
+
+Command (m for help): n
+Partition type:
+   p   primary (2 primary, 0 extended, 2 free)
+   e   extended
+Select (default p): 
+Using default response p
+Partition number (3,4, default 3): 
+First sector (20973568-32171359, default 20973568): 
+Using default value 20973568
+Last sector, +sectors or +size{K,M,G} (20973568-32171359, default 32171359): +6G
+Value out of range.
+Last sector, +sectors or +size{K,M,G} (20973568-32171359, default 32171359): 
+Using default value 32171359
+Partition 3 of type Linux and of size 5.3 GiB is set
+
+Command (m for help): p
+
+Disk /dev/sdb: 16.5 GB, 16471736320 bytes, 32171360 sectors
+Units = sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+Disk label type: dos
+Disk identifier: 0x6660e756
+
+   Device Boot      Start         End      Blocks   Id  System
+/dev/sdb1            2048    10487807     5242880   83  Linux
+/dev/sdb2        10487808    20973567     5242880   83  Linux
+/dev/sdb3        20973568    32171359     5598896   83  Linux
+
+Command (m for help): w
+The partition table has been altered!
+
+Calling ioctl() to re-read partition table.
+Syncing disks.
+
+
+Step 7
+======
+
+now the new partitions have been created. we can list them as below 
+
+[root@localhost ~]# ls /dev/sd*
+/dev/sda  /dev/sda1  /dev/sda2  /dev/sdb  /dev/sdb1  /dev/sdb2  /dev/sdb3
+
+[root@localhost ~]# fdisk -l
+
+Disk /dev/sda: 84.7 GB, 84729331712 bytes, 165486976 sectors
+Units = sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+Disk label type: dos
+Disk identifier: 0x0004dd51
+
+   Device Boot      Start         End      Blocks   Id  System
+/dev/sda1   *        2048     2099199     1048576   83  Linux
+/dev/sda2         2099200   165486591    81693696   8e  Linux LVM
+
+Disk /dev/sdb: 16.5 GB, 16471736320 bytes, 32171360 sectors
+Units = sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+Disk label type: dos
+Disk identifier: 0x6660e756
+
+   Device Boot      Start         End      Blocks   Id  System
+/dev/sdb1            2048    10487807     5242880   83  Linux
+/dev/sdb2        10487808    20973567     5242880   83  Linux
+/dev/sdb3        20973568    32171359     5598896   83  Linux
+
+Disk /dev/mapper/ol-root: 52.3 GB, 52281999360 bytes, 102113280 sectors
+Units = sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+
+
+Disk /dev/mapper/ol-swap: 5838 MB, 5838471168 bytes, 11403264 sectors
+Units = sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+
+
+Disk /dev/mapper/ol-home: 25.5 GB, 25526534144 bytes, 49856512 sectors
+Units = sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+
+
+-----------------------------------------------------------
+
+Step 8
+======
+
+This an optional step 
+
+in case if it is required to delete a partition please follow below steps.
+
+
+delete partition
+================
+
+[root@localhost ~]# fdisk /dev/sdb
+Welcome to fdisk (util-linux 2.23.2).
+
+Changes will remain in memory only, until you decide to write them.
+Be careful before using the write command.
+
+
+Command (m for help): d
+Partition number (1-3, default 3): 3
+Partition 3 is deleted
+
+Command (m for help): w
+The partition table has been altered!
+
+Calling ioctl() to re-read partition table.
+Syncing disks.
+[root@localhost ~]# fdisk /dev/sdb
+Welcome to fdisk (util-linux 2.23.2).
+
+Changes will remain in memory only, until you decide to write them.
+Be careful before using the write command.
+
+
+Command (m for help): d
+Partition number (1,2, default 2): 2
+Partition 2 is deleted
+
+Command (m for help): w
+The partition table has been altered!
+
+Calling ioctl() to re-read partition table.
+Syncing disks.
+[root@localhost ~]# fdisk /dev/sdb
+Welcome to fdisk (util-linux 2.23.2).
+
+Changes will remain in memory only, until you decide to write them.
+Be careful before using the write command.
+
+
+Command (m for help): d
+Selected partition 1
+Partition 1 is deleted
+
+Command (m for help): w
+The partition table has been altered!
+
+Calling ioctl() to re-read partition table.
+Syncing disks.
+[root@localhost ~]# fdisk -l
+
+Disk /dev/sda: 84.7 GB, 84729331712 bytes, 165486976 sectors
+Units = sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+Disk label type: dos
+Disk identifier: 0x0004dd51
+
+   Device Boot      Start         End      Blocks   Id  System
+/dev/sda1   *        2048     2099199     1048576   83  Linux
+/dev/sda2         2099200   165486591    81693696   8e  Linux LVM
+
+Disk /dev/sdb: 12.9 GB, 12884901888 bytes, 25165824 sectors
+Units = sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+Disk label type: dos
+Disk identifier: 0x572f81d6
+
+   Device Boot      Start         End      Blocks   Id  System
+
+Disk /dev/mapper/ol-root: 52.3 GB, 52281999360 bytes, 102113280 sectors
+Units = sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+
+
+Disk /dev/mapper/ol-swap: 5838 MB, 5838471168 bytes, 11403264 sectors
+Units = sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+
+
+Disk /dev/mapper/ol-home: 25.5 GB, 25526534144 bytes, 49856512 sectors
+Units = sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+
+you can see all partitions has been deleted.
+
+
+In case if you want to totally remove the disk and add a new one , please watch the video for the demonstration
+
+Step 9
+======
+
+Create separate ASM Disk for each partition
+
+[root@localhost ~]# oracleasm createdisk CRS1 /dev/sdb1
+Writing disk header: done
+Instantiating disk: done
+[root@localhost ~]# oracleasm createdisk DATA1 /dev/sdb2
+Writing disk header: done
+Instantiating disk: done
+[root@localhost ~]# oracleasm createdisk FRA1 /dev/sdb3
+Writing disk header: done
+Instantiating disk: done
+
+ To check asm disks
+
+
+[root@localhost ~]# oracleasm listdisks
+CRS1
+DATA1
+FRA1
+
+
+[root@localhost ~]# ls -lrt /dev/oracleasm/disks
+total 0
+brw-rw----. 1 grid dba 8, 17 Jun  7 11:26 CRS1
+brw-rw----. 1 grid dba 8, 18 Jun  7 11:26 DATA1
+brw-rw----. 1 grid dba 8, 19 Jun  7 11:26 FRA1
+
+
+Step 10
+=======
+
+ This is an optional step , to get familer with asm library operations
+
+
+Oracle ASMLib
+
+ASMLib is an optional support library for the Automatic Storage Management feature of the Oracle Database. Automatic Storage Management (ASM) simplifies database administration and greatly reduces kernel resource usage (e.g. the number of open file descriptors). It eliminates the need for the DBA to directly manage potentially thousands of Oracle database files, requiring only the management of groups of disks allocated to the Oracle Database. ASMLib allows an Oracle Database using ASM more efficient and capable access to the disk groups it is using.
+
+How to delete OracleASM Disk?
+
+Use the below commands to delete the given OracleASM disk in Linux, it depends on your init system manager.
+
+[grid@localhost ~]$ oracleasm listdisks
+CRS1
+DATA1
+FRA1
+[grid@localhost ~]$ oracleasm deletedisk FRA1
+Clearing disk header: done
+Dropping disk: /usr/lib/oracleasm/oracleasm-Xshlib: line 182: /var/log/oracleasm: Permission denied
+failed
+Unable to delete disk "FRA1"
+/usr/lib/oracleasm/oracleasm-Xshlib: line 182: /var/log/oracleasm: Permission denied
+[grid@localhost ~]$ exit
+logout
+[root@localhost ~]# oracleasm deletedisk FRA1
+Disk "FRA1" defines an unmarked device
+Dropping disk: done
+
+where are the disks located
+
+[root@localhost oracleasm]# oracleasm listdisks
+CRS1
+DATA1
+[root@localhost oracleasm]# cd /dev/oracleasm
+[root@localhost oracleasm]# ls
+disks  iid
+[root@localhost oracleasm]# cd disks/
+[root@localhost disks]# ls
+CRS1  DATA1
+[root@localhost disks]# ls -l
+total 0
+brw-rw----. 1 grid dba 8, 17 Jun  7 18:10 CRS1
+brw-rw----. 1 grid dba 8, 18 Jun  7 18:10 DATA1
+
+b - or block device 
+
+Step 11
+=======
+
+Configure the bash profile for grid user
+
+[root@localhost ~]# su - grid
+[grid@localhost ~]$ vi .bash_profile
+
+# .bash_profile
+
+# Get the aliases and functions
+if [ -f ~/.bashrc ]; then
+        . ~/.bashrc
+fi
+
+ORACLE_SID=+ASM; export ORACLE_SID
+ORACLE_BASE=/u01/app/grid; export ORACLE_BASE
+ORACLE_HOME=/u01/app/grid/12.2.0/grid_home; export ORACLE_HOME
+#ORACLE_TERM=xterm; export ORACLE_TERM
+JAVA_HOME=/usr/bin/java; export JAVA_HOME
+TNS_ADMIN=$ORACLE_HOME/network/admin; export TNS_ADMIN
+
+PATH=.:${JAVA_HOME}/bin:${PATH}:$HOME/bin:$ORACLE_HOME/bin
+# User specific environment and startup programs
+
+PATH=$PATH:$HOME/.local/bin:$HOME/bin
+PATH=${PATH}:/usr/bin:/bin:/usr/local/bin
+export PATH
+umask 022
+
+Step 11
+=======
+
+Download grid 12.2 from Ediliery
+copy it to the home folder of the grid user in the Guest OS.
+
+Change the permission as below 
+
+[root@localhost ~]# chown -R grid:oinstall V840012-01.zip 
+
+Then unzip in to Grid $ORACLE_HOME
+
+[root@localhost grid]#su - grid
+
+
+[grid@localhost ~]$ unzip V840012-01.zip -d $ORACLE_HOME
+
+[root@localhost ~]# xhost +
+
+[root@localhost ~]# su - grid
+Last login: Tue May 11 11:20:10 +0530 2021 on pts/0
+[oracle@localhost ~]$ export DISPLAY=:0.0
+
+run the setup
+
+[grid@localhost grid_home]$ ./gridSetup.sh
+
+for Disk dicovery path use - /dev/oracleasm/disks
+as the pattern
+
+
+Step 12
+=======
+
+
+Configure ASM Diskgroups
+
+The grid installer allows you to only create one diskgroup (CRS), which is to setup 
+the ASM  filesystem. After that It is required to start the asmca utility in order to create DATA and FRA diskgroup which are required for database installation. 
+
+run asmca
+
+[grid@localhost grid_home]$ asmca
+
+ create the two Disk groups DATA1 , FRA1
+
+Step 13
+=======
+
+ Lets install Oracle Database Software only
+
+ 
+ set the bash profile for oracle user
+
+[oracle@localhost ~]$ vi .bash_profile
+
+ORACLE_HOSTNAME=localhost.localdomain; export ORACLE_HOSTNAME
+ORACLE_SID=asmcdb; export ORACLE_SID
+ORACLE_UNQNAME=asmcdb; export ORACLE_UNQNAME
+ORACLE_BASE=/u01/app/oracle; export ORACLE_BASE
+ORACLE_HOME=/u01/app/oracle/product/12.2.0/db_home; export ORACLE_HOME
+#ORACLE_TERM=xterm; export ORACLE_TERM
+
+JAVA_HOME=/usr/bin/java; export JAVA_HOME
+NLS_DATE_FORMAT="DD-MON-YYYY HH24:MI:SS"; export NLS_DATE_FORMAT
+TNS_ADMIN=$ORACLE_HOME/network/admin; export TNS_ADMIN
+PATH=.:${JAVA_HOME}/bin:${PATH}:$HOME/bin:$ORACLE_HOME/bin
+PATH=${PATH}:/usr/bin:/bin:/usr/local/bin
+export PATH
+
+LD_LIBRARY_PATH=$ORACLE_HOME/lib
+LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:$ORACLE_HOME/oracm/lib
+LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/lib:/usr/lib:/usr/local/lib
+export LD_LIBRARY_PATH
+
+CLASSPATH=$ORACLE_HOME/JRE:$ORACLE_HOME/jlib:$ORACLE_HOME/rdbms/jlib:$ORACLE_HOME/network/jlib
+export CLASSPATH
+
+TEMP=/tmp ;export TMP
+TMPDIR=$tmp ; export TMPDIR
+
+umask 022
+
+update the current terminal with updated .bash contents
+
+[oracle@localhost ~]$ . .bash_profile
+
+Unzip the Oracle software
+
+
+[oracle@localhost ~]$ pwd
+/home/oracle
+
+[oracle@localhost ~]$ ls
+linuxx64_12201_database.zip
+[oracle@localhost ~]$ ls -l
+total 3372752
+-rwxrwx---. 1 root root 3453696911 Mar 22  2020 linuxx64_12201_database.zip
+[oracle@localhost ~]$ chown oracle:oinstall linuxx64_12201_database.zip 
+chown: changing ownership of ‘linuxx64_12201_database.zip’: Operation not permitted
+[oracle@localhost ~]$ exit
+logout
+[root@localhost tmp]# cd /home/oracle/
+[root@localhost oracle]# chown oracle:oinstall linuxx64_12201_database.zip
+[root@localhost oracle]# ls -l
+total 3372752
+-rwxrwx---. 1 oracle oinstall 3453696911 Mar 22  2020 linuxx64_12201_database.zip
+[root@localhost oracle]# xhost +
+access control disabled, clients can connect from any host
+[root@localhost oracle]# su - oracle
+Last login: Sat Jun 12 17:22:36 +0530 2021 on pts/1
+[oracle@localhost ~]$ export DISPLAY=:0.0
+[oracle@localhost ~]$ pwd
+/home/oracle
+[oracle@localhost ~]$ ls -l
+total 3372752
+-rwxrwx---. 1 oracle oinstall 3453696911 Mar 22  2020 linuxx64_12201_database.zip
+[oracle@localhost ~]$ unzip linuxx64_12201_database.zip 
+
+execute the database installer
+
+[oracle@localhost database]$ ls
+install  response  rpm  runInstaller  sshsetup  stage  welcome.html
+[oracle@localhost database]$ ./runInstaller 
+Starting Oracle Universal Installer...
+
+Checking Temp space: must be greater than 500 MB.   Actual 12805 MB    Passed
+Checking swap space: must be greater than 150 MB.   Actual 4915 MB    Passed
+Checking monitor: must be configured to display at least 256 colors.    Actual 16777216    Passed
+Preparing to launch Oracle Universal Installer from /tmp/OraInstall2021-06-12_05-46-50PM. Please wait ...[oracle@localhost database]$ You can find the log of this install session at:
+ /u01/app/oraInventory/logs/installActions2021-06-12_05-46-50PM.log
+
+
+
+Step 15
+=======
+
+  Lets create a Database with Multitenancy Enabled using DBCA
+
+Fisrt lets get familer with the grid environment a little
+
+
+
+The Grid Infrastructure installs a listener by default on port 1521, and configures the ASM instance to use this listener. 
+
+
+Use pgrep -lf ASM to see the +ASM instance processes
+
+The pgrep command is a tool for looking through currently running processes based on a number of different attributes and providing the process IDs (PIDs), but it does a lot of other things as well
+
+Use pgrep -lf tns to see the listeners
+
+[root@localhost ~]#  pgrep -lf tns 
+15 netns
+26340 tnslsnr
+[root@localhost ~]# su - grid
+Last login: Sat Jun 12 16:32:34 +0530 2021 on pts/8
+[grid@localhost ~]$  pgrep -lf tns 
+15 netns
+26340 tnslsnr
+[grid@localhost ~]$ ps -ef | grep tns
+root        15     2  0 13:40 ?        00:00:00 [netns]
+grid     24194 24065  0 21:21 pts/0    00:00:00 grep --color=auto tns
+grid     26340     1  0 16:33 ?        00:00:00 /u01/app/grid/product/12.2.0/grid_home/bin/tnslsnr LISTENER -no_crs_notify -inherit
+[grid@localhost ~]$ lsnrctl
+
+LSNRCTL for Linux: Version 12.2.0.1.0 - Production on 12-JUN-2021 21:21:46
+
+Copyright (c) 1991, 2016, Oracle.  All rights reserved.
+
+Welcome to LSNRCTL, type "help" for information.
+
+LSNRCTL> status
+Connecting to (DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=localhost)(PORT=1521)))
+STATUS of the LISTENER
+------------------------
+Alias                     LISTENER
+Version                   TNSLSNR for Linux: Version 12.2.0.1.0 - Production
+Start Date                12-JUN-2021 16:33:22
+Uptime                    0 days 4 hr. 48 min. 26 sec
+Trace Level               off
+Security                  ON: Local OS Authentication
+SNMP                      OFF
+Listener Parameter File   /u01/app/grid/product/12.2.0/grid_home/network/admin/listener.ora
+Listener Log File         /u01/app/grid/diag/tnslsnr/localhost/listener/alert/log.xml
+Listening Endpoints Summary...
+  (DESCRIPTION=(ADDRESS=(PROTOCOL=tcp)(HOST=localhost)(PORT=1521)))
+  (DESCRIPTION=(ADDRESS=(PROTOCOL=ipc)(KEY=EXTPROC1521)))
+Services Summary...
+Service "+ASM" has 1 instance(s).
+  Instance "+ASM", status READY, has 1 handler(s) for this service...
+Service "+ASM_CRS" has 1 instance(s).
+  Instance "+ASM", status READY, has 1 handler(s) for this service...
+Service "+ASM_DATA1" has 1 instance(s).
+  Instance "+ASM", status READY, has 1 handler(s) for this service...
+Service "+ASM_FRA1" has 1 instance(s).
+  Instance "+ASM", status READY, has 1 handler(s) for this service...
+The command completed successfully
+
+
+[grid@localhost ~]$ srvctl config asm
+ASM home: <CRS home>
+Password file: +CRS/orapwasm
+Backup of Password file: 
+ASM listener: LISTENER
+Spfile: +CRS/ASM/ASMPARAMETERFILE/registry.253.1075048453
+ASM diskgroup discovery string: /dev/oracleasm/disks
+
+[grid@localhost ~]$ asmcmd
+ASMCMD> spget
++CRS/ASM/ASMPARAMETERFILE/registry.253.1075048453
+ASMCMD> 
+
+[grid@localhost ~]$ srvctl status listener
+Listener LISTENER is enabled
+Listener LISTENER is running on node(s): localhost
+
+[grid@localhost ~]$ cd /u01/app/grid/product/12.2.0/grid_home/network/admin/
+[grid@localhost admin]$ ls
+listener.ora  samples  shrept.lst  sqlnet.ora
+[grid@localhost admin]$ cat listener.ora 
+#Backup file is  /u01/app/grid/product/12.2.0/grid_home/srvm/admin/listener.ora.bak.localhost line added by Agent
+# listener.ora Network Configuration File: /u01/app/grid/product/12.2.0/grid_home/network/admin/listener.ora
+# Generated by Oracle configuration tools.
+
+LISTENER =
+  (DESCRIPTION_LIST =
+    (DESCRIPTION =
+      (ADDRESS = (PROTOCOL = TCP)(HOST = localhost)(PORT = 1521))
+      (ADDRESS = (PROTOCOL = IPC)(KEY = EXTPROC1521))
+    )
+  )
+
+ENABLE_GLOBAL_DYNAMIC_ENDPOINT_LISTENER=ON		# line added by Agent
+VALID_NODE_CHECKING_REGISTRATION_LISTENER=SUBNET		# line added by Agent
+
+
+
+
+
+
+
