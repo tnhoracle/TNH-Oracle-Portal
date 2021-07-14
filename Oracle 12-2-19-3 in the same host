@@ -490,17 +490,17 @@ drwxr-xr-x. 2 oracle oinstall 6 May 13 17:05 dbhome_1
 
 /u01/app/oracle/product/19.3.0/dbhome_1
 [root@localhost dbhome_1]# chown -R oracle:oinstall .
-
-
- now it is time to execute ./runInstaller.sh
-
-the enable  x11 as below
-
 [root@localhost ~]# xhost +
 
 [root@localhost ~]# su - oracle
 Last login: Tue May 11 11:20:10 +0530 2021 on pts/0
 [oracle@localhost ~]$ export DISPLAY=:0.0
+
+ now it is time to execute ./runInstaller.sh
+
+the enable  x11 as below
+
+
 
  Co-Exists Oracle multiple versions 
  ----------------------------------
